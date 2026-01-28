@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronRight, Users, FileText, DollarSign, Package, CheckCircle, Clock, Search, Calendar, Plus, Eye, Edit, Trash2, Download, Printer, ScanBarcode as Barcode, Save, X, Settings, ClipboardCheck, UserCheck } from 'lucide-react';
+import { useBundles } from './contexts/BundleContext';
 
 const WorkerWageSystem = ({ embedded = false }) => {
     const [currentPage, setCurrentPage] = useState('workers');
@@ -8,6 +9,9 @@ const WorkerWageSystem = ({ embedded = false }) => {
     const [editingRate, setEditingRate] = useState(null);
     const [showAttendanceModal, setShowAttendanceModal] = useState(false);
     const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
+    const [showAddOperationModal, setShowAddOperationModal] = useState(false);
+    const [newOperationName, setNewOperationName] = useState('');
+    const [newOperationRate, setNewOperationRate] = useState(0.25);
     const [newWorker, setNewWorker] = useState({ name: '', phone: '', operations: [] });
     const [selectedOperation, setSelectedOperation] = useState('');
     const [selectedBundles, setSelectedBundles] = useState([]);
@@ -30,69 +34,18 @@ const WorkerWageSystem = ({ embedded = false }) => {
 
     const [attendance, setAttendance] = useState({});
 
-    const [bundles, setBundles] = useState([
-        // Enhanced structure: each bundle tracks which operations are done
-        {
-            id: '7506-1', production: '7506', product: 'Track Pants', color: 'Grey', size: '20', pieces: 8,
-            operationsCompleted: {
-                'Bottom Stitch': { done: true, worker: 'Ramesh Kumar', time: '10:30 AM' },
-                'Pocket Stitch': { done: true, worker: 'Suresh Patil', time: '11:00 AM' },
-            },
-            currentWorker: null,
-            currentOperation: null,
-        },
-        {
-            id: '7506-2', production: '7506', product: 'Track Pants', color: 'Black', size: '22', pieces: 8,
-            operationsCompleted: {
-                'Bottom Stitch': { done: true, worker: 'Ramesh Kumar', time: '10:45 AM' },
-            },
-            currentWorker: 'Suresh Patil',
-            currentOperation: 'Pocket Stitch',
-        },
-        {
-            id: '7506-3', production: '7506', product: 'Track Pants', color: 'Navy', size: '24', pieces: 8,
-            operationsCompleted: {},
-            currentWorker: 'Mohan Singh',
-            currentOperation: 'Elastic Stitch',
-        },
-        {
-            id: '7507-1', production: '7507', product: 'Track Pants', color: 'Navy', size: '24', pieces: 8,
-            operationsCompleted: {},
-            currentWorker: null,
-            currentOperation: null,
-        },
-        {
-            id: '7507-2', production: '7507', product: 'Track Pants', color: 'Grey', size: '26', pieces: 8,
-            operationsCompleted: {},
-            currentWorker: null,
-            currentOperation: null,
-        },
-        {
-            id: '7507-3', production: '7507', product: 'Track Pants', color: 'Black', size: '28', pieces: 8,
-            operationsCompleted: {
-                'Bottom Stitch': { done: true, worker: 'Mohan Singh', time: '11:15 AM' },
-                'Elastic Stitch': { done: true, worker: 'Mohan Singh', time: '11:30 AM' },
-                'Pocket Stitch': { done: true, worker: 'Ramesh Kumar', time: '11:45 AM' },
-                'Side Stitch': { done: true, worker: 'Ramesh Kumar', time: '12:00 PM' },
-            },
-            currentWorker: null,
-            currentOperation: null,
-        },
-        {
-            id: '7508-1', production: '7508', product: 'Shirts', color: 'White', size: 'M', pieces: 10,
-            operationsCompleted: {},
-            currentWorker: null,
-            currentOperation: null,
-        },
-        {
-            id: '7508-2', production: '7508', product: 'Shirts', color: 'Blue', size: 'L', pieces: 10,
-            operationsCompleted: {
-                'Collar Stitch': { done: true, worker: 'Suresh Patil', time: '10:00 AM' },
-            },
-            currentWorker: null,
-            currentOperation: null,
-        },
-    ]);
+    // ==================== BUNDLES FROM SHARED CONTEXT ====================
+    const {
+        bundles,
+        setBundles,
+        moveBundle,
+        STITCHING_OPERATIONS,
+        assignWorker,
+        completeOperation,
+        releaseBundle,
+        getAvailableBundlesForOperation,
+        getWorkerCurrentBundles
+    } = useBundles();
 
     const dailyWork = [
         { operation: 'Bottom Stitching', bundles: 10, pieces: 80, rate: 0.30, amount: 24.00 },
@@ -149,6 +102,17 @@ const WorkerWageSystem = ({ embedded = false }) => {
                 ? prev.operations.filter(op => op !== operation)
                 : [...prev.operations, operation]
         }));
+    };
+
+    const addNewOperation = () => {
+        if (!newOperationName.trim()) return;
+        setOperationRates(prev => ({
+            ...prev,
+            [newOperationName.trim()]: newOperationRate
+        }));
+        setNewOperationName('');
+        setNewOperationRate(0.25);
+        setShowAddOperationModal(false);
     };
 
     const getFilteredWorkers = () => {
@@ -248,7 +212,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                             'bg-gray-200 text-gray-600'
                                         }`}
                                 >
-                                    {attendance[w.id] === 'present' ? '✓ Present' : attendance[w.id] === 'absent' ? '✗ Absent' : 'Not Marked'}
+                                    {attendance[w.id] === 'present' ? 'Present' : attendance[w.id] === 'absent' ? 'Absent' : 'Not Marked'}
                                 </button>
                             </div>
                         ))}
@@ -258,6 +222,46 @@ const WorkerWageSystem = ({ embedded = false }) => {
                 <div className="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end gap-2">
                     <button onClick={() => setShowAttendanceModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
                     <button onClick={() => setShowAttendanceModal(false)} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save Attendance</button>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Add Operation Modal
+    const AddOperationModal = () => (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4">
+                <div className="flex items-center justify-between p-4 border-b">
+                    <h2 className="text-lg font-bold text-gray-800">Add New Operation</h2>
+                    <button onClick={() => setShowAddOperationModal(false)} className="p-1 hover:bg-gray-100 rounded">
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="p-4 space-y-4">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Operation Name</label>
+                        <input
+                            type="text"
+                            value={newOperationName}
+                            onChange={(e) => setNewOperationName(e.target.value)}
+                            placeholder="e.g., Sleeve Stitch"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Rate per Piece (₹)</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            value={newOperationRate}
+                            onChange={(e) => setNewOperationRate(parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                        />
+                    </div>
+                </div>
+                <div className="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end gap-2">
+                    <button onClick={() => setShowAddOperationModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+                    <button onClick={addNewOperation} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Add Operation</button>
                 </div>
             </div>
         </div>
@@ -285,7 +289,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                         </div>
                     ))}
                 </div>
-                <button className="mt-4 px-4 py-2 bg-blue-600 text-white text-xs rounded-lg flex items-center gap-2">
+                <button onClick={() => setShowAddOperationModal(true)} className="mt-4 px-4 py-2 bg-blue-600 text-white text-xs rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors">
                     <Plus size={14} /> Add New Operation
                 </button>
             </div>
@@ -294,8 +298,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
 
     // Production-Level Work Assignment System
     const WorkAssignment = () => {
-        // Local state for this component
-        const [localBundles, setLocalBundles] = useState(bundles);
+        // Use shared bundles directly
         const [activeWorker, setActiveWorker] = useState(null);
         const [activeOperation, setActiveOperation] = useState('');
         const [selectedBundleIds, setSelectedBundleIds] = useState([]);
@@ -307,14 +310,15 @@ const WorkerWageSystem = ({ embedded = false }) => {
         const bundlesPerPage = 15;
 
         // Get unique productions for filter
-        const productions = [...new Set(localBundles.map(b => b.production))];
+        const productions = [...new Set(bundles.map(b => b.production))];
 
         // Get all operations
         const allOperations = Object.keys(operationRates);
 
         // Helper: Get bundles needing a specific operation (for Kanban columns)
         const getBundlesForOperation = (operation) => {
-            return localBundles.filter(b =>
+            return bundles.filter(b => // Use bundles directly
+                b.stage === 'Sewing Floor' && // Strict stage check
                 !b.operationsCompleted[operation] && // Operation not done
                 !b.currentWorker && // Not currently being worked on
                 (filterProduction === '' || b.production === filterProduction)
@@ -323,13 +327,17 @@ const WorkerWageSystem = ({ embedded = false }) => {
 
         // Helper: Get bundles currently being worked on
         const getInProgressBundles = () => {
-            return localBundles.filter(b => b.currentWorker);
+            return bundles.filter(b => b.currentWorker); // Use bundles directly
         };
 
         // Helper: Get completed bundles (all operations done)
         const getCompletedBundles = () => {
-            return localBundles.filter(b => {
-                const doneCount = Object.keys(b.operationsCompleted).length;
+            return bundles.filter(b => {
+                // Check if all operations in STITCHING_OPERATIONS or operationRates are done
+                // AND bundle is still in Sewing Floor or moved past it?
+                // For this specific view, we likely want bundles that JUST finished but are still in Sewing Floor or recently moved?
+                // Actually let's just show bundles where 'stage' is past Sewing Floor OR all ops done.
+                const doneCount = Object.keys(b.operationsCompleted || {}).length;
                 return doneCount >= allOperations.length && !b.currentWorker;
             });
         };
@@ -342,7 +350,8 @@ const WorkerWageSystem = ({ embedded = false }) => {
         // Helper: Get bundles available for pickup by current worker/operation
         const getAvailableBundles = () => {
             if (!activeWorker || !activeOperation) return [];
-            return localBundles.filter(b =>
+            return bundles.filter(b => // Use bundles directly
+                b.stage === 'Sewing Floor' &&
                 bundleNeedsOperation(b, activeOperation) &&
                 !b.currentWorker &&
                 (filterProduction === '' || b.production === filterProduction)
@@ -353,14 +362,14 @@ const WorkerWageSystem = ({ embedded = false }) => {
         const getMyCurrentWork = () => {
             if (!activeWorker) return [];
             const worker = workers.find(w => w.id === activeWorker);
-            return localBundles.filter(b => b.currentWorker === worker?.name);
+            return bundles.filter(b => b.currentWorker === worker?.name); // Use bundles directly
         };
 
         // Helper: Get worker workload summary
         const getWorkerWorkload = (workerName) => {
-            const currentWork = localBundles.filter(b => b.currentWorker === workerName);
-            const completedToday = localBundles.reduce((count, b) => {
-                return count + Object.values(b.operationsCompleted).filter(op => op.worker === workerName).length;
+            const currentWork = bundles.filter(b => b.currentWorker === workerName);
+            const completedToday = bundles.reduce((count, b) => {
+                return count + Object.values(b.operationsCompleted || {}).filter(op => op.worker === workerName).length;
             }, 0);
             return { current: currentWork.length, completedOps: completedToday };
         };
@@ -379,37 +388,22 @@ const WorkerWageSystem = ({ embedded = false }) => {
         const pickUpBundles = () => {
             if (!activeWorker || !activeOperation || selectedBundleIds.length === 0) return;
             const worker = workers.find(w => w.id === activeWorker);
-            const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-            setLocalBundles(prev => prev.map(b =>
-                selectedBundleIds.includes(b.id)
-                    ? { ...b, currentWorker: worker.name, currentOperation: activeOperation }
-                    : b
-            ));
+            // Use Context Action
+            selectedBundleIds.forEach(id => {
+                assignWorker(id, worker.name, activeOperation);
+            });
             setSelectedBundleIds([]);
         };
 
         // Complete work on bundles - mark operation done and release bundle
         const completeMyWork = (bundleId) => {
             const worker = workers.find(w => w.id === activeWorker);
-            const bundle = localBundles.find(b => b.id === bundleId);
+            const bundle = bundles.find(b => b.id === bundleId);
             if (!bundle || !bundle.currentOperation) return;
 
-            const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-
-            setLocalBundles(prev => prev.map(b =>
-                b.id === bundleId
-                    ? {
-                        ...b,
-                        operationsCompleted: {
-                            ...b.operationsCompleted,
-                            [b.currentOperation]: { done: true, worker: worker.name, time: now }
-                        },
-                        currentWorker: null,
-                        currentOperation: null,
-                    }
-                    : b
-            ));
+            // Use Context Action
+            completeOperation(bundleId, bundle.currentOperation, worker.name);
         };
 
         // Complete all my work
@@ -441,14 +435,11 @@ const WorkerWageSystem = ({ embedded = false }) => {
         // Barcode scan handler
         const handleScan = (e) => {
             if (e.key === 'Enter' && scanInput.trim()) {
-                const bundle = localBundles.find(b => b.id === scanInput.trim());
+                const bundle = bundles.find(b => b.id === scanInput.trim());
                 if (bundle && activeWorker && activeOperation && bundleNeedsOperation(bundle, activeOperation) && !bundle.currentWorker) {
                     const worker = workers.find(w => w.id === activeWorker);
-                    setLocalBundles(prev => prev.map(b =>
-                        b.id === bundle.id
-                            ? { ...b, currentWorker: worker.name, currentOperation: activeOperation }
-                            : b
-                    ));
+                    // Use Context Action
+                    assignWorker(bundle.id, worker.name, activeOperation);
                 }
                 setScanInput('');
             }
@@ -466,17 +457,17 @@ const WorkerWageSystem = ({ embedded = false }) => {
                 <div className="bg-white rounded-xl p-4 border border-gray-100" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h2 className="text-lg font-bold text-gray-900">📋 Work Assignment</h2>
+                            <h2 className="text-lg font-bold text-gray-900"> Work Assignment</h2>
                             <p className="text-xs text-gray-500">Assign bundles to workers for specific operations</p>
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                             <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
                                 <span className="text-blue-600">Total Bundles:</span>
-                                <span className="font-bold text-blue-800 ml-1">{localBundles.length}</span>
+                                <span className="font-bold text-blue-800 ml-1">{bundles.length}</span>
                             </div>
                             <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5">
                                 <span className="text-orange-600">Available:</span>
-                                <span className="font-bold text-orange-800 ml-1">{localBundles.filter(b => !b.currentWorker).length}</span>
+                                <span className="font-bold text-orange-800 ml-1">{bundles.filter(b => !b.currentWorker).length}</span>
                             </div>
                             {/* View Toggle */}
                             <div className="flex bg-gray-100 rounded-lg p-0.5 ml-2">
@@ -484,13 +475,13 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                     onClick={() => setViewMode('kanban')}
                                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1 ${viewMode === 'kanban' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
                                 >
-                                    📊 Kanban
+                                    Kanban
                                 </button>
                                 <button
                                     onClick={() => setViewMode('table')}
                                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1 ${viewMode === 'table' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
                                 >
-                                    📋 Table
+                                    Table
                                 </button>
                             </div>
                         </div>
@@ -530,7 +521,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                         )}
                         <div>
                             <label className="block text-[10px] font-medium text-gray-500 uppercase mb-1">Quick Scan</label>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1">ww
                                 <input
                                     type="text"
                                     value={scanInput}
@@ -568,7 +559,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                             <div className="min-w-[260px] max-w-[260px] bg-gradient-to-b from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl flex flex-col">
                                 <div className="bg-blue-600 text-white rounded-t-lg px-3 py-2.5 flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                        <span>🔄</span>
+                                        <span></span>
                                         <span className="font-semibold text-sm">In Progress</span>
                                     </div>
                                     <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">{getInProgressBundles().length}</span>
@@ -598,7 +589,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                                         onClick={() => completeMyWork(bundle.id)}
                                                         className="w-full px-2 py-1.5 bg-green-600 text-white rounded text-[10px] font-semibold hover:bg-green-700"
                                                     >
-                                                        ✓ Done
+                                                        Done
                                                     </button>
                                                 )}
                                             </div>
@@ -616,7 +607,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                     <div key={operation} className="min-w-[260px] max-w-[260px] bg-gradient-to-b from-orange-50 to-orange-100 border-2 border-orange-200 rounded-xl flex flex-col">
                                         <div className="bg-orange-500 text-white rounded-t-lg px-3 py-2.5 flex items-center justify-between">
                                             <div className="flex items-center gap-1.5">
-                                                <span>⏳</span>
+                                                <span></span>
                                                 <span className="font-semibold text-xs truncate">{operation}</span>
                                             </div>
                                             <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">{opBundles.length}</span>
@@ -624,7 +615,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                         <div className="p-2 space-y-2 overflow-y-auto flex-1 max-h-[420px]">
                                             {opBundles.length === 0 ? (
                                                 <div className="text-center py-8 text-gray-400 text-xs">
-                                                    <div className="text-2xl mb-1 opacity-40">✅</div>
+                                                    <div className="text-2xl mb-1 opacity-40"></div>
                                                     All done
                                                 </div>
                                             ) : (
@@ -643,13 +634,11 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                                                     onClick={() => {
                                                                         setActiveOperation(operation);
                                                                         const worker = workers.find(w => w.id === activeWorker);
-                                                                        setLocalBundles(prev => prev.map(b =>
-                                                                            b.id === bundle.id ? { ...b, currentWorker: worker.name, currentOperation: operation } : b
-                                                                        ));
+                                                                        assignWorker(bundle.id, worker.name, operation);
                                                                     }}
                                                                     className="w-full px-2 py-1.5 bg-blue-600 text-white rounded text-[10px] font-semibold hover:bg-blue-700"
                                                                 >
-                                                                    📥 Assign
+                                                                    Assign
                                                                 </button>
                                                             ) : (
                                                                 <button
@@ -677,7 +666,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                             <div className="min-w-[260px] max-w-[260px] bg-gradient-to-b from-green-50 to-green-100 border-2 border-green-200 rounded-xl flex flex-col">
                                 <div className="bg-green-600 text-white rounded-t-lg px-3 py-2.5 flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                        <span>✅</span>
+                                        <span></span>
                                         <span className="font-semibold text-sm">Completed</span>
                                     </div>
                                     <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">{getCompletedBundles().length}</span>
@@ -685,7 +674,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                 <div className="p-2 space-y-2 overflow-y-auto flex-1 max-h-[420px]">
                                     {getCompletedBundles().length === 0 ? (
                                         <div className="text-center py-8 text-gray-400 text-xs">
-                                            <div className="text-2xl mb-1 opacity-40">⏳</div>
+                                            <div className="text-2xl mb-1 opacity-40"></div>
                                             No completed bundles yet
                                         </div>
                                     ) : (
@@ -693,7 +682,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                             <div key={bundle.id} className="bg-white rounded-lg p-2.5 border border-green-200 shadow-sm">
                                                 <div className="flex items-center justify-between mb-1">
                                                     <span className="font-mono text-xs font-bold text-green-700">{bundle.id}</span>
-                                                    <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">✓ All Done</span>
+                                                    <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">All Done</span>
                                                 </div>
                                                 <div className="text-[10px] text-gray-600">{bundle.product} • {bundle.color} • {bundle.pieces} pcs</div>
                                             </div>
@@ -705,7 +694,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
 
                         {/* Worker Workload Summary */}
                         <div className="bg-white rounded-xl p-4 border border-gray-100" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                            <h3 className="font-semibold text-sm text-gray-800 mb-3">👥 Worker Activity Today</h3>
+                            <h3 className="font-semibold text-sm text-gray-800 mb-3">Worker Activity Today</h3>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                                 {workers.filter(w => w.status === 'Active').map(worker => {
                                     const workload = getWorkerWorkload(worker.name);
@@ -738,7 +727,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-orange-50">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-base">📦</span>
+                                    <span className="text-base"></span>
                                     <span className="font-semibold text-sm text-orange-800">Bundles Ready for {activeOperation || 'Your Operation'}</span>
                                     <span className="bg-orange-200 text-orange-800 text-xs font-bold px-2 py-0.5 rounded-full">{availableBundles.length}</span>
                                 </div>
@@ -759,7 +748,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                 </div>
                             ) : availableBundles.length === 0 ? (
                                 <div className="p-8 text-center text-gray-400">
-                                    <div className="text-4xl mb-3 opacity-50">✅</div>
+                                    <div className="text-4xl mb-3 opacity-50"></div>
                                     <p className="text-sm">No bundles waiting for {activeOperation}</p>
                                 </div>
                             ) : (
@@ -861,7 +850,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                             <div className="bg-white rounded-xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-blue-50">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-base">🔄</span>
+                                        <span className="text-base"></span>
                                         <span className="font-semibold text-sm text-blue-800">My Current Work</span>
                                         <span className="bg-blue-200 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full">{myCurrentWork.length}</span>
                                     </div>
@@ -870,7 +859,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                             onClick={completeAllMyWork}
                                             className="px-3 py-1 bg-green-600 text-white text-[10px] font-semibold rounded-lg hover:bg-green-700"
                                         >
-                                            ✓ Complete All
+                                            Complete All
                                         </button>
                                     )}
                                 </div>
@@ -892,7 +881,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                                     onClick={() => completeMyWork(bundle.id)}
                                                     className="px-2.5 py-1.5 bg-green-600 text-white text-[10px] font-semibold rounded-lg hover:bg-green-700"
                                                 >
-                                                    ✓ Done
+                                                    Done
                                                 </button>
                                             </div>
                                         ))
@@ -903,7 +892,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                             {/* Worker Workload */}
                             <div className="bg-white rounded-xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                                 <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                                    <span className="font-semibold text-sm text-gray-800">👥 Today's Workload</span>
+                                    <span className="font-semibold text-sm text-gray-800">Today's Workload</span>
                                 </div>
                                 <div className="p-2 space-y-2 max-h-[200px] overflow-y-auto">
                                     {workers.filter(w => w.status === 'Active').map(worker => {
@@ -961,7 +950,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                         return (
                                             <div key={op} className={`flex items-center gap-3 p-3 rounded-lg border ${completed ? 'bg-green-50 border-green-200' : isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100'}`}>
                                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${completed ? 'bg-green-500 text-white' : isCurrent ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                                                    {completed ? '✓' : isCurrent ? '→' : '○'}
+                                                    {completed ? 'Done' : isCurrent ? '>' : '-'}
                                                 </div>
                                                 <div className="flex-1">
                                                     <div className={`text-sm font-medium ${completed ? 'text-green-800' : isCurrent ? 'text-blue-800' : 'text-gray-500'}`}>{op}</div>
@@ -994,7 +983,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
 
     const [completionData, setCompletionData] = useState({});
 
-    const inProgressBundles = bundles.filter(b => b.status === 'In Progress');
+    const inProgressBundles = bundles.filter(b => b.stage === 'Sewing Floor' && b.currentWorker);
 
     const handleCompletionChange = (bundleId, field, value) => {
         setCompletionData(prev => ({
@@ -1005,17 +994,19 @@ const WorkerWageSystem = ({ embedded = false }) => {
 
     const markComplete = (bundleId, isPartial = false) => {
         const bundle = bundles.find(b => b.id === bundleId);
-        const completed = isPartial ? (completionData[bundleId]?.completedPieces || 0) : bundle.pieces;
+        if (!bundle) return;
 
-        setBundles(prev => prev.map(b => {
-            if (b.id === bundleId) {
-                if (isPartial && completed < b.pieces) {
-                    return { ...b, completedPieces: completed, status: 'Partial' };
-                }
-                return { ...b, completedPieces: b.pieces, status: 'Completed' };
-            }
-            return b;
-        }));
+        // Complete the current operation
+        if (bundle.currentOperation && bundle.currentWorker) {
+            completeOperation(bundleId, bundle.currentOperation, bundle.currentWorker);
+        }
+
+        // If all operations complete (or full completion clicked), move to next stage
+        if (!isPartial) {
+            // Move bundle to Ironing stage
+            moveBundle(bundleId, 'Ironing');
+        }
+
         setCompletionData(prev => ({ ...prev, [bundleId]: {} }));
     };
 
@@ -1063,12 +1054,12 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                         </div>
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                                             <div><span className="text-gray-500">Product:</span> <span className="font-medium">{bundle.product}</span></div>
-                                            <div><span className="text-gray-500">Color:</span> <span className="font-medium">{bundle.color}</span></div>
+                                            <div><span className="text-gray-500">Color:</span> <span className="font-medium">{bundle.colour}</span></div>
                                             <div><span className="text-gray-500">Size:</span> <span className="font-medium">{bundle.size}</span></div>
                                             <div><span className="text-gray-500">Total Pieces:</span> <span className="font-bold text-blue-600">{bundle.pieces}</span></div>
                                         </div>
                                         <div className="mt-2 text-xs">
-                                            <span className="text-gray-500">Worker:</span> <span className="font-medium text-gray-800">{bundle.worker}</span>
+                                            <span className="text-gray-500">Worker:</span> <span className="font-medium text-gray-800">{bundle.currentWorker}</span>
                                         </div>
                                     </div>
 
@@ -1111,7 +1102,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                     <span className="text-xs text-gray-600">Quality:</span>
                                     <label className="flex items-center gap-1 cursor-pointer text-xs">
                                         <input type="radio" name={`quality-${bundle.id}`} value="pass" defaultChecked className="w-3 h-3 text-green-600" />
-                                        <span className="text-green-700 font-medium">✓ Pass</span>
+                                        <span className="text-green-700 font-medium">Pass</span>
                                     </label>
                                     <label className="flex items-center gap-1 cursor-pointer text-xs">
                                         <input type="radio" name={`quality-${bundle.id}`} value="fail" className="w-3 h-3 text-red-600" />
@@ -1137,22 +1128,26 @@ const WorkerWageSystem = ({ embedded = false }) => {
     const [reportView, setReportView] = useState('daily'); // 'daily' or 'weekly'
     const [workerPayments, setWorkerPayments] = useState({}); // Track paid amounts per worker
 
-    // Calculate wages from completed work
-    const completedBundles = bundles.filter(b => b.status === 'Completed' || b.status === 'Partial');
-
+    // Calculate wages from completed work (using operationsCompleted on each bundle)
     const getWorkerWages = () => {
         const wages = {};
         workers.forEach(w => {
-            wages[w.name] = { bundles: 0, pieces: 0, amount: 0 };
+            wages[w.name] = { bundles: 0, pieces: 0, amount: 0, operations: [] };
         });
 
-        completedBundles.forEach(bundle => {
-            if (bundle.worker && wages[bundle.worker]) {
-                const pieces = bundle.completedPieces || bundle.pieces;
-                const avgRate = Object.values(operationRates).reduce((a, b) => a + b, 0) / Object.keys(operationRates).length;
-                wages[bundle.worker].bundles += 1;
-                wages[bundle.worker].pieces += pieces;
-                wages[bundle.worker].amount += pieces * avgRate;
+        // Iterate through all bundles and their completed operations
+        bundles.forEach(bundle => {
+            if (bundle.operationsCompleted) {
+                Object.entries(bundle.operationsCompleted).forEach(([operation, data]) => {
+                    if (data.done && data.worker && wages[data.worker]) {
+                        const pieces = bundle.pieces || 6;
+                        const rate = operationRates[operation] || 0.30; // Default rate if not found
+                        wages[data.worker].bundles += 1;
+                        wages[data.worker].pieces += pieces;
+                        wages[data.worker].amount += pieces * rate;
+                        wages[data.worker].operations.push({ operation, pieces, rate, bundleId: bundle.id });
+                    }
+                });
             }
         });
         return wages;
@@ -1169,6 +1164,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
     const workerWages = getWorkerWages();
     const totalWages = Object.values(workerWages).reduce((sum, w) => sum + w.amount, 0);
     const totalPieces = Object.values(workerWages).reduce((sum, w) => sum + w.pieces, 0);
+    const completedOperationsCount = Object.values(workerWages).reduce((sum, w) => sum + w.bundles, 0);
     const totalPaid = Object.values(workerPayments).reduce((sum, p) => sum + p, 0);
     const totalBalance = totalWages - totalPaid;
 
@@ -1206,7 +1202,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                 </div>
                 <div className="bg-white rounded-lg shadow p-3">
                     <div className="text-xs text-gray-500">Bundles Completed</div>
-                    <div className="text-xl font-bold text-blue-600">{completedBundles.length}</div>
+                    <div className="text-xl font-bold text-blue-600">{completedOperationsCount}</div>
                 </div>
                 <div className="bg-white rounded-lg shadow p-3">
                     <div className="text-xs text-gray-500">Total Pieces</div>
@@ -1291,7 +1287,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                                 disabled={balance === 0}
                                                 className={`px-2 py-1 rounded text-xs font-medium ${balance > 0 ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
                                             >
-                                                {balance > 0 ? 'Pay Balance' : '✓ Paid'}
+                                                {balance > 0 ? 'Pay Balance' : 'Paid'}
                                             </button>
                                         </td>
                                     </tr>
@@ -1301,7 +1297,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                         <tfoot>
                             <tr className="bg-gray-100 font-bold">
                                 <td className="px-3 py-2" colSpan={2}>Total</td>
-                                <td className="px-3 py-2 text-right">{completedBundles.length}</td>
+                                <td className="px-3 py-2 text-right">{completedOperationsCount}</td>
                                 <td className="px-3 py-2 text-right">{totalPieces}</td>
                                 <td className="px-3 py-2 text-right text-green-600">₹{totalWages.toFixed(2)}</td>
                                 <td className="px-3 py-2 text-right">₹{totalPaid.toFixed(2)}</td>
@@ -1314,32 +1310,37 @@ const WorkerWageSystem = ({ embedded = false }) => {
             </div>
 
             {/* Completed Work Details */}
-            {completedBundles.length > 0 && (
+            {completedOperationsCount > 0 && (
                 <div className="bg-white rounded-lg shadow-md p-4">
                     <h2 className="text-sm font-semibold text-gray-800 mb-3">Completed Work Details</h2>
                     <div className="space-y-2">
-                        {completedBundles.map(bundle => (
-                            <div key={bundle.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-xs">
-                                <div className="flex items-center gap-3">
-                                    <span className="font-bold text-gray-800">{bundle.id}</span>
-                                    <span className="text-gray-600">{bundle.product} | {bundle.color} | Size {bundle.size}</span>
-                                    <span className={`px-1.5 py-0.5 rounded text-xs ${bundle.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                        {bundle.status === 'Completed' ? '✓ Complete' : `Partial (${bundle.completedPieces}/${bundle.pieces})`}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-gray-600">Worker: <b>{bundle.worker}</b></span>
-                                    <span className="font-bold text-green-600">₹{((bundle.completedPieces || bundle.pieces) * 0.30).toFixed(2)}</span>
-                                </div>
-                            </div>
+                        {bundles.filter(b => b.operationsCompleted && Object.keys(b.operationsCompleted).length > 0).map(bundle => (
+                            Object.entries(bundle.operationsCompleted).map(([operation, data]) => (
+                                data.done && (
+                                    <div key={`${bundle.id}-${operation}`} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-xs">
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-bold text-gray-800">{bundle.id}</span>
+                                            <span className="text-gray-600">{bundle.product} | {bundle.colour} | Size {bundle.size}</span>
+                                            <span className="px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                                                {operation}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-gray-600">Worker: <b>{data.worker}</b></span>
+                                            <span className="text-gray-500 text-[10px]">{data.time}</span>
+                                            <span className="font-bold text-green-600">₹{((bundle.pieces || 6) * (operationRates[operation] || 0.30)).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                )
+                            ))
                         ))}
                     </div>
                 </div>
             )}
 
-            {completedBundles.length === 0 && (
+            {completedOperationsCount === 0 && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center text-sm text-yellow-700">
-                    ⚠️ No completed work yet. Complete some bundles in the Work Completion page to see wages here.
+                    No completed work yet. Complete some bundles in the Work Completion page to see wages here.
                 </div>
             )}
         </div>
@@ -1523,7 +1524,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
                                                 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                                             }`}
                                     >
-                                        {attendance[w.id] === 'present' ? '✓ Present' : attendance[w.id] === 'absent' ? '✗ Absent' : '— Not Marked'}
+                                        {attendance[w.id] === 'present' ? 'Present' : attendance[w.id] === 'absent' ? 'Absent' : '-- Not Marked'}
                                     </button>
                                 </td>
                                 <td className="p-3 text-center">
@@ -1584,6 +1585,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
         return (
             <div className="text-sm">
                 {showAttendanceModal && <AttendanceModal />}
+                {showAddOperationModal && <AddOperationModal />}
                 <TabNav />
                 {currentPage === 'workers' && <WorkersManagement />}
                 {currentPage === 'assignment' && <WorkAssignment />}
@@ -1597,6 +1599,7 @@ const WorkerWageSystem = ({ embedded = false }) => {
     return (
         <div className="min-h-screen bg-gray-100 flex text-sm">
             {showAttendanceModal && <AttendanceModal />}
+            {showAddOperationModal && <AddOperationModal />}
             <aside className="w-56 bg-white shadow-lg p-4 space-y-1">
                 <div className="mb-6">
                     <h2 className="text-base font-bold text-gray-800">Worker Wage</h2>

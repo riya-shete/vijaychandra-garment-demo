@@ -1,25 +1,90 @@
 import React, { useState } from 'react';
 import { Users, FileText, Package, Truck, Receipt, CreditCard, Plus, Search, Edit, Trash2, Eye, ChevronRight, X, Check, AlertCircle, Download, Mail, Printer, Upload, FileSpreadsheet } from 'lucide-react';
+import { useInventory } from './contexts/InventoryContext';
 
 const CRMSalesSystem = ({ embedded = false }) => {
     const [currentPage, setCurrentPage] = useState('customers');
     const [showOrderModal, setShowOrderModal] = useState(false);
     const [showInvoiceModal, setShowInvoiceModal] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [newCustomer, setNewCustomer] = useState({ name: '', contact: '', phone: '', email: '', gst: '', city: '', state: '' });
+
+    // Inventory Context for stock deduction on dispatch
+    const { inventory, setInventory } = useInventory();
 
     // Sample Data
-    const [customers] = useState([
+    const [customers, setCustomers] = useState([
         { id: 'CUST-001', name: 'ABC Textiles Pvt Ltd', contact: 'Rajesh Kumar', phone: '9876543210', email: 'rajesh@abctextiles.com', gst: '27AABCU9603R1ZM', city: 'Mumbai', state: 'Maharashtra', creditLimit: 100000, paymentTerms: '15 Days' },
         { id: 'CUST-002', name: 'XYZ Traders', contact: 'Amit Shah', phone: '9876543211', email: 'amit@xyztraders.com', gst: '24AABCU9603R1ZN', city: 'Ahmedabad', state: 'Gujarat', creditLimit: 75000, paymentTerms: '30 Days' },
         { id: 'CUST-003', name: 'PQR Garments', contact: 'Suresh Patel', phone: '9876543212', email: 'suresh@pqrgarments.com', gst: '29AABCU9603R1ZO', city: 'Bangalore', state: 'Karnataka', creditLimit: 50000, paymentTerms: 'Advance' },
     ]);
 
-    const [orders] = useState([
-        { id: 'ORD-001', date: '15-Jan-2026', customer: 'ABC Textiles Pvt Ltd', customerId: 'CUST-001', salesperson: 'Vijay', items: 3, total: 21262, status: 'Pending', deliveryDate: '20-Jan-2026' },
-        { id: 'ORD-002', date: '14-Jan-2026', customer: 'XYZ Traders', customerId: 'CUST-002', salesperson: 'Rahul', items: 5, total: 35000, status: 'Dispatched', deliveryDate: '18-Jan-2026' },
-        { id: 'ORD-003', date: '13-Jan-2026', customer: 'PQR Garments', customerId: 'CUST-003', salesperson: 'Vijay', items: 2, total: 15500, status: 'Confirmed', deliveryDate: '19-Jan-2026' },
+    const [orders, setOrders] = useState([
+        {
+            id: 'ORD-001', date: '15-Jan-2026', customer: 'ABC Textiles Pvt Ltd', customerId: 'CUST-001', salesperson: 'Vijay', items: 3, total: 21262, status: 'Pending', deliveryDate: '20-Jan-2026', orderItems: [
+                { product: 'Raftaar Kids', color: 'Navy', size: '24', qty: 10, rate: 450 },
+            ]
+        },
+        { id: 'ORD-002', date: '14-Jan-2026', customer: 'XYZ Traders', customerId: 'CUST-002', salesperson: 'Rahul', items: 5, total: 35000, status: 'Dispatched', deliveryDate: '18-Jan-2026', orderItems: [] },
+        {
+            id: 'ORD-003', date: '13-Jan-2026', customer: 'PQR Garments', customerId: 'CUST-003', salesperson: 'Vijay', items: 2, total: 15500, status: 'Confirmed', deliveryDate: '19-Jan-2026', orderItems: [
+                { product: 'Raftaar Kids', color: 'Navy', size: '20', qty: 5, rate: 420 },
+                { product: 'Speedo Pro', color: 'Black', size: '22', qty: 8, rate: 520 },
+            ]
+        },
     ]);
+
+    // Handle Dispatch - Deducts stock and updates order status
+    const handleDispatch = (orderId) => {
+        const order = orders.find(o => o.id === orderId);
+        if (!order || order.status !== 'Confirmed') return;
+
+        // Deduct stock for each item in the order
+        if (order.orderItems && order.orderItems.length > 0) {
+            setInventory(prevInventory => {
+                return prevInventory.map(invItem => {
+                    // Find matching order item
+                    const matchingOrderItem = order.orderItems.find(
+                        oi => oi.product === invItem.product &&
+                            oi.color === invItem.color &&
+                            oi.size === invItem.size
+                    );
+                    if (matchingOrderItem) {
+                        return {
+                            ...invItem,
+                            qty: Math.max(0, (invItem.qty || invItem.stock || 0) - matchingOrderItem.qty),
+                            stock: Math.max(0, (invItem.stock || invItem.qty || 0) - matchingOrderItem.qty)
+                        };
+                    }
+                    return invItem;
+                });
+            });
+        }
+
+        // Update order status to Dispatched
+        setOrders(prev => prev.map(o =>
+            o.id === orderId ? { ...o, status: 'Dispatched' } : o
+        ));
+
+        // Show invoice modal
+        setShowInvoiceModal(true);
+    };
+
+    // Add a new customer
+    const addCustomer = () => {
+        if (!newCustomer.name.trim() || !newCustomer.contact.trim()) return;
+        const newId = `CUST-${String(customers.length + 1).padStart(3, '0')}`;
+        setCustomers(prev => [...prev, {
+            id: newId,
+            ...newCustomer,
+            creditLimit: 50000,
+            paymentTerms: '30 Days'
+        }]);
+        setNewCustomer({ name: '', contact: '', phone: '', email: '', gst: '', city: '', state: '' });
+        setShowAddCustomerModal(false);
+    };
 
     const [invoices] = useState([
         { id: 'INV-2026-0001', date: '15-Jan-2026', orderId: 'ORD-002', customer: 'XYZ Traders', amount: 35000, paid: 35000, status: 'Paid', dueDate: '30-Jan-2026' },
@@ -62,7 +127,7 @@ const CRMSalesSystem = ({ embedded = false }) => {
                         Import Excel
                         <input type="file" accept=".xlsx,.xls,.csv" className="hidden" />
                     </label>
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors">
+                    <button onClick={() => setShowAddCustomerModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors">
                         <Plus size={14} />
                         Add Customer
                     </button>
@@ -432,7 +497,7 @@ const CRMSalesSystem = ({ embedded = false }) => {
                                         )}
                                         {order.status === 'Dispatched' && (
                                             <button className="px-2.5 py-1 bg-green-50 text-green-700 rounded-md text-[10px] font-semibold">
-                                                ✓ Completed
+                                                Completed
                                             </button>
                                         )}
                                     </div>
@@ -524,7 +589,7 @@ const CRMSalesSystem = ({ embedded = false }) => {
                                 <td className="p-3 text-gray-600">{order.deliveryDate}</td>
                                 <td className="p-3 text-center">
                                     {order.status === 'Confirmed' ? (
-                                        <span className="px-2 py-1 bg-green-50 text-green-700 rounded-md text-[10px] font-semibold">✓ Available</span>
+                                        <span className="px-2 py-1 bg-green-50 text-green-700 rounded-md text-[10px] font-semibold">Available</span>
                                     ) : (
                                         <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-md text-[10px] font-semibold">—</span>
                                     )}
@@ -532,7 +597,7 @@ const CRMSalesSystem = ({ embedded = false }) => {
                                 <td className="p-3 text-center">
                                     {order.status === 'Confirmed' ? (
                                         <button
-                                            onClick={() => setShowInvoiceModal(true)}
+                                            onClick={() => handleDispatch(order.id)}
                                             className="px-3 py-1.5 bg-green-600 text-white rounded-md text-[10px] font-semibold hover:bg-green-700 transition-colors inline-flex items-center gap-1"
                                         >
                                             <Truck size={12} /> Complete & Invoice
@@ -671,7 +736,7 @@ const CRMSalesSystem = ({ embedded = false }) => {
                                                     Record Payment
                                                 </button>
                                             ) : (
-                                                <span className="px-2.5 py-1 bg-green-50 text-green-700 rounded-md text-[10px] font-semibold whitespace-nowrap">✓ Paid</span>
+                                                <span className="px-2.5 py-1 bg-green-50 text-green-700 rounded-md text-[10px] font-semibold whitespace-nowrap">Paid</span>
                                             )}
                                         </div>
                                     </div>
@@ -840,7 +905,7 @@ const CRMSalesSystem = ({ embedded = false }) => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 w-[600px] max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">🧾 Generate Invoice</h3>
+                    <h3 className="text-lg font-semibold">Generate Invoice</h3>
                     <button onClick={() => setShowInvoiceModal(false)} className="text-gray-400 hover:text-gray-600">
                         <X size={20} />
                     </button>
@@ -1038,6 +1103,113 @@ const CRMSalesSystem = ({ embedded = false }) => {
                 <TabNav />
                 {showInvoiceModal && <InvoiceModal />}
                 {showPaymentModal && <PaymentModal />}
+
+                {/* Add Customer Modal - render in embedded mode */}
+                {showAddCustomerModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl w-[500px] shadow-2xl">
+                            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-blue-50">
+                                <div>
+                                    <h3 className="text-sm font-bold text-gray-800">Add New Customer</h3>
+                                    <p className="text-xs text-gray-500">Customer ID will be auto-generated</p>
+                                </div>
+                                <button onClick={() => setShowAddCustomerModal(false)} className="text-gray-400 hover:text-gray-600">
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <div className="p-4 space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Company Name *</label>
+                                        <input
+                                            type="text"
+                                            value={newCustomer.name}
+                                            onChange={(e) => setNewCustomer(c => ({ ...c, name: e.target.value }))}
+                                            placeholder="e.g., ABC Textiles Pvt Ltd"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Contact Person *</label>
+                                        <input
+                                            type="text"
+                                            value={newCustomer.contact}
+                                            onChange={(e) => setNewCustomer(c => ({ ...c, contact: e.target.value }))}
+                                            placeholder="e.g., Rajesh Kumar"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
+                                        <input
+                                            type="tel"
+                                            value={newCustomer.phone}
+                                            onChange={(e) => setNewCustomer(c => ({ ...c, phone: e.target.value }))}
+                                            placeholder="e.g., 9876543210"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                                        <input
+                                            type="email"
+                                            value={newCustomer.email}
+                                            onChange={(e) => setNewCustomer(c => ({ ...c, email: e.target.value }))}
+                                            placeholder="e.g., contact@company.com"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">City</label>
+                                        <input
+                                            type="text"
+                                            value={newCustomer.city}
+                                            onChange={(e) => setNewCustomer(c => ({ ...c, city: e.target.value }))}
+                                            placeholder="e.g., Mumbai"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">State</label>
+                                        <input
+                                            type="text"
+                                            value={newCustomer.state}
+                                            onChange={(e) => setNewCustomer(c => ({ ...c, state: e.target.value }))}
+                                            placeholder="e.g., Maharashtra"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">GST Number</label>
+                                    <input
+                                        type="text"
+                                        value={newCustomer.gst}
+                                        onChange={(e) => setNewCustomer(c => ({ ...c, gst: e.target.value }))}
+                                        placeholder="e.g., 27AABCU9603R1ZM"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2">
+                                <button onClick={() => setShowAddCustomerModal(false)} className="px-4 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-lg">
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={addCustomer}
+                                    disabled={!newCustomer.name || !newCustomer.contact}
+                                    className="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                    <Plus size={14} className="inline mr-1" /> Add Customer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {currentPage === 'customers' && <CustomersPage />}
                 {currentPage === 'order-entry' && <OrderEntryPage />}
                 {currentPage === 'orders' && <OrderListPage />}

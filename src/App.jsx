@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Factory, Wallet, Package, ShoppingCart, Settings, TrendingUp, Users, Clock, AlertCircle, ChevronRight, ArrowUpRight, ArrowDownRight, Bell, Search, Calendar } from 'lucide-react';
+import { LayoutDashboard, Factory, Wallet, Package, ShoppingCart, Settings, TrendingUp, Users, Clock, AlertCircle, ChevronRight, ArrowUpRight, ArrowDownRight, Bell, Search, Calendar, Printer, Sparkles, Box } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BundleProvider } from './contexts/BundleContext';
 import WorkerWageSystem from './WorkerWageSystem';
 import CRMSalesSystem from './CRMSalesSystem';
 import InventorySystem from './InventorySystem';
 import ProductionSystem from './ProductionSystem';
+import SettingsSystem from './SettingsSystem';
+import PrintingSystem from './PrintingSystem';
+import IroningSystem from './IroningSystem';
+import PackagingSystem from './PackagingSystem';
+import { InventoryProvider } from './contexts/InventoryContext';
 import './index.css';
 
 function App() {
@@ -373,47 +379,57 @@ function App() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex text-sm">
-      {/* Sidebar */}
-      <aside className="w-48 bg-white border-r border-gray-200 p-3 flex flex-col">
-        <div className="mb-6 px-1">
-          <h1 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+    <BundleProvider>
+      <InventoryProvider>
+        <div className="min-h-screen bg-gray-50 flex text-sm">
+          {/* Sidebar */}
+          <aside className="w-48 bg-white border-r border-gray-200 p-3 flex flex-col">
+            <div className="mb-6 px-1">
+              <h1 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
 
-            VIJAYCHANDRA
-          </h1>
+                VIJAYCHANDRA
+              </h1>
 
-        </div>
-
-        <nav className="flex-1 space-y-1">
-          <NavItem icon={LayoutDashboard} label="Dashboard" module="dashboard" active={currentModule === 'dashboard'} />
-          <NavItem icon={Factory} label="Production" module="production" active={currentModule === 'production'} />
-          <NavItem icon={Wallet} label="Worker Wages" module="worker-wages" active={currentModule === 'worker-wages'} />
-          <NavItem icon={Package} label="Inventory" module="inventory" active={currentModule === 'inventory'} />
-          <NavItem icon={ShoppingCart} label="CRM / Sales" module="crm" active={currentModule === 'crm'} />
-          <NavItem icon={Settings} label="Settings" module="settings" active={currentModule === 'settings'} />
-        </nav>
-
-        <div className="pt-3 border-t border-gray-100">
-          <div className="px-2 py-2 bg-green-50 rounded-lg border border-green-100">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-medium text-green-700">Tally Connected</span>
             </div>
-            <p className="text-[9px] text-green-600">Last sync: 2 min ago</p>
-          </div>
-        </div>
-      </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 p-4 overflow-auto">
-        {currentModule === 'dashboard' && <DashboardHome />}
-        {currentModule === 'worker-wages' && <WorkerWageSystem embedded={true} />}
-        {currentModule === 'production' && <ProductionSystem embedded={true} />}
-        {currentModule === 'inventory' && <InventorySystem embedded={true} />}
-        {currentModule === 'crm' && <CRMSalesSystem embedded={true} />}
-        {currentModule === 'settings' && <PlaceholderModule title="Settings" icon={Settings} description="Configure system preferences" />}
-      </main>
-    </div>
+            <nav className="flex-1 space-y-1">
+              <NavItem icon={LayoutDashboard} label="Dashboard" module="dashboard" active={currentModule === 'dashboard'} />
+              <NavItem icon={Factory} label="Production" module="production" active={currentModule === 'production'} />
+              <NavItem icon={Printer} label="Printing Hub" module="printing" active={currentModule === 'printing'} />
+              <NavItem icon={LayoutDashboard} label="Sewing Floor" module="worker-wages" active={currentModule === 'worker-wages'} />
+              <NavItem icon={Sparkles} label="Finishing Station" module="ironing" active={currentModule === 'ironing'} />
+              <NavItem icon={Box} label="Packaging" module="packaging" active={currentModule === 'packaging'} />
+              <NavItem icon={Package} label="Inventory" module="inventory" active={currentModule === 'inventory'} />
+              <NavItem icon={ShoppingCart} label="CRM / Sales" module="crm" active={currentModule === 'crm'} />
+              <NavItem icon={Settings} label="Settings" module="settings" active={currentModule === 'settings'} />
+            </nav>
+
+            <div className="pt-3 border-t border-gray-100">
+              <div className="px-2 py-2 bg-green-50 rounded-lg border border-green-100">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-medium text-green-700">Tally Connected</span>
+                </div>
+                <p className="text-[9px] text-green-600">Last sync: 2 min ago</p>
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 p-4 overflow-auto">
+            {currentModule === 'dashboard' && <DashboardHome />}
+            {currentModule === 'production' && <ProductionSystem embedded={true} />}
+            {currentModule === 'printing' && <PrintingSystem embedded={true} />}
+            {currentModule === 'worker-wages' && <WorkerWageSystem embedded={true} />}
+            {currentModule === 'ironing' && <IroningSystem embedded={true} />}
+            {currentModule === 'packaging' && <PackagingSystem embedded={true} />}
+            {currentModule === 'inventory' && <InventorySystem embedded={true} />}
+            {currentModule === 'crm' && <CRMSalesSystem embedded={true} />}
+            {currentModule === 'settings' && <SettingsSystem embedded={true} />}
+          </main>
+        </div>
+      </InventoryProvider>
+    </BundleProvider >
   );
 }
 

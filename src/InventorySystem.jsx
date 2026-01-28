@@ -1,24 +1,74 @@
 import React, { useState } from 'react';
-import { Package, Plus, Search, Edit, Trash2, Eye, Upload, Download, AlertCircle, Check, X, Boxes } from 'lucide-react';
+import { Package, Plus, Search, Edit, Trash2, Eye, Upload, Download, AlertCircle, Check, X, Boxes, PackageCheck, ArrowRight } from 'lucide-react';
+import { useInventory } from './contexts/InventoryContext';
+import { useBundles } from './contexts/BundleContext';
 
 const InventorySystem = ({ embedded = false }) => {
     const [currentPage, setCurrentPage] = useState('products');
     const [showAddModal, setShowAddModal] = useState(false);
     const [showStockModal, setShowStockModal] = useState(false);
 
-    // Sample Inventory Data
-    const [inventory] = useState([
-        { id: 'SKU-001', product: 'Raftaar Kids', category: 'Kids Track Pants', color: 'Navy', size: '20', qty: 45, minStock: 20, maxStock: 100, rate: 420, shelf: 'A-1', hsn: '6103', lastUpdated: '15-Jan-2026' },
-        { id: 'SKU-002', product: 'Raftaar Kids', category: 'Kids Track Pants', color: 'Navy', size: '22', qty: 38, minStock: 20, maxStock: 100, rate: 430, shelf: 'A-1', hsn: '6103', lastUpdated: '15-Jan-2026' },
-        { id: 'SKU-003', product: 'Raftaar Kids', category: 'Kids Track Pants', color: 'Navy', size: '24', qty: 18, minStock: 20, maxStock: 100, rate: 450, shelf: 'A-3', hsn: '6103', lastUpdated: '14-Jan-2026' },
-        { id: 'SKU-004', product: 'Raftaar Kids', category: 'Kids Track Pants', color: 'Black', size: '22', qty: 52, minStock: 20, maxStock: 100, rate: 430, shelf: 'A-2', hsn: '6103', lastUpdated: '15-Jan-2026' },
-        { id: 'SKU-005', product: 'Speedo Pro', category: 'Sports Track Pants', color: 'Black', size: '22', qty: 20, minStock: 15, maxStock: 80, rate: 520, shelf: 'B-1', hsn: '6103', lastUpdated: '15-Jan-2026' },
-        { id: 'SKU-006', product: 'Speedo Pro', category: 'Sports Track Pants', color: 'Navy', size: '24', qty: 8, minStock: 15, maxStock: 80, rate: 540, shelf: 'B-2', hsn: '6103', lastUpdated: '13-Jan-2026' },
-        { id: 'SKU-007', product: 'Champion', category: 'Sports Track Pants', color: 'Grey', size: '20', qty: 5, minStock: 15, maxStock: 80, rate: 380, shelf: 'B-5', hsn: '6103', lastUpdated: '12-Jan-2026' },
-        { id: 'SKU-008', product: 'Turbo', category: 'Premium Track Pants', color: 'Maroon', size: '26', qty: 30, minStock: 10, maxStock: 50, rate: 680, shelf: 'C-1', hsn: '6103', lastUpdated: '15-Jan-2026' },
-        { id: 'SKU-009', product: 'Sprint', category: 'Budget Track Pants', color: 'Black', size: '24', qty: 75, minStock: 30, maxStock: 150, rate: 320, shelf: 'D-1', hsn: '6103', lastUpdated: '15-Jan-2026' },
-        { id: 'SKU-010', product: 'Raftaar Kids', category: 'Kids Track Pants', color: 'Grey', size: '26', qty: 0, minStock: 15, maxStock: 80, rate: 460, shelf: 'A-4', hsn: '6103', lastUpdated: '10-Jan-2026' },
-    ]);
+    // Add Stock Form State
+    const [newStock, setNewStock] = useState({
+        product: 'Raftaar Kids',
+        color: 'Navy',
+        size: '20',
+        quantity: 0,
+        shelf: 'A-1',
+        reference: ''
+    });
+
+    // Sample Inventory Data - From Context
+    const { inventory, setInventory } = useInventory();
+
+    // Handle Add Stock
+    const handleAddStock = () => {
+        if (newStock.quantity <= 0) return;
+
+        // Find existing SKU or create new
+        const sku = `${newStock.product.substring(0, 3).toUpperCase()}-${newStock.color.substring(0, 3).toUpperCase()}-${newStock.size}`;
+
+        setInventory(prev => {
+            const existingIndex = prev.findIndex(item =>
+                item.product === newStock.product &&
+                item.color === newStock.color &&
+                item.size === newStock.size
+            );
+
+            if (existingIndex >= 0) {
+                const updated = [...prev];
+                updated[existingIndex] = {
+                    ...updated[existingIndex],
+                    stock: (updated[existingIndex].stock || 0) + parseInt(newStock.quantity),
+                    qty: (updated[existingIndex].qty || 0) + parseInt(newStock.quantity),
+                    shelf: newStock.shelf || updated[existingIndex].shelf,
+                    lastUpdated: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                };
+                return updated;
+            } else {
+                return [...prev, {
+                    id: `SKU-${String(prev.length + 1).padStart(3, '0')}`,
+                    sku,
+                    product: newStock.product,
+                    category: 'Track Pants',
+                    color: newStock.color,
+                    size: newStock.size,
+                    stock: parseInt(newStock.quantity),
+                    qty: parseInt(newStock.quantity),
+                    minStock: 15,
+                    maxStock: 100,
+                    rate: 450,
+                    shelf: newStock.shelf,
+                    hsn: '6103',
+                    lastUpdated: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                }];
+            }
+        });
+
+        // Reset form and close modal
+        setNewStock({ product: 'Raftaar Kids', color: 'Navy', size: '20', quantity: 0, shelf: 'A-1', reference: '' });
+        setShowStockModal(false);
+    };
 
     // Products Master Data
     const [products] = useState([
@@ -184,9 +234,10 @@ const InventorySystem = ({ embedded = false }) => {
                     <button
                         onClick={() => setShowStockModal(true)}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"
+                        title="For purchased/external goods only. Production stock is added via Packaging."
                     >
                         <Plus size={14} />
-                        Add Stock
+                        Add Purchased Stock
                     </button>
                 </div>
             </div>
@@ -466,22 +517,28 @@ const InventorySystem = ({ embedded = false }) => {
         </div>
     );
 
-    // Add Stock Modal
+    // Add Stock Modal (For Purchased/External Goods Only)
     const AddStockModal = () => (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 w-[450px]">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Add Stock</h3>
+                <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold">Add Purchased Stock</h3>
                     <button onClick={() => setShowStockModal(false)} className="text-gray-400 hover:text-gray-600">
                         <X size={20} />
                     </button>
                 </div>
+                <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded mb-4 border border-amber-100">
+                    For externally purchased goods only. Production stock is added automatically via Packaging system.
+                </p>
 
                 <div className="space-y-4 text-xs">
                     <div>
                         <label className="block text-gray-500 mb-1">Product</label>
-                        <select className="w-full px-3 py-2 border rounded-lg">
-                            <option>Select product</option>
+                        <select
+                            value={newStock.product}
+                            onChange={(e) => setNewStock(prev => ({ ...prev, product: e.target.value }))}
+                            className="w-full px-3 py-2 border rounded-lg"
+                        >
                             <option>Raftaar Kids</option>
                             <option>Speedo Pro</option>
                             <option>Champion</option>
@@ -493,7 +550,11 @@ const InventorySystem = ({ embedded = false }) => {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-gray-500 mb-1">Color</label>
-                            <select className="w-full px-3 py-2 border rounded-lg">
+                            <select
+                                value={newStock.color}
+                                onChange={(e) => setNewStock(prev => ({ ...prev, color: e.target.value }))}
+                                className="w-full px-3 py-2 border rounded-lg"
+                            >
                                 <option>Navy</option>
                                 <option>Black</option>
                                 <option>Grey</option>
@@ -502,29 +563,53 @@ const InventorySystem = ({ embedded = false }) => {
                         </div>
                         <div>
                             <label className="block text-gray-500 mb-1">Size</label>
-                            <select className="w-full px-3 py-2 border rounded-lg">
+                            <select
+                                value={newStock.size}
+                                onChange={(e) => setNewStock(prev => ({ ...prev, size: e.target.value }))}
+                                className="w-full px-3 py-2 border rounded-lg"
+                            >
                                 <option>20</option>
                                 <option>22</option>
                                 <option>24</option>
                                 <option>26</option>
+                                <option>28</option>
+                                <option>30</option>
                             </select>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-gray-500 mb-1">Quantity</label>
-                            <input type="number" placeholder="50" className="w-full px-3 py-2 border rounded-lg" />
+                            <label className="block text-gray-500 mb-1">Quantity *</label>
+                            <input
+                                type="number"
+                                value={newStock.quantity}
+                                onChange={(e) => setNewStock(prev => ({ ...prev, quantity: e.target.value }))}
+                                placeholder="50"
+                                className="w-full px-3 py-2 border rounded-lg"
+                            />
                         </div>
                         <div>
                             <label className="block text-gray-500 mb-1">Shelf Location</label>
-                            <input type="text" placeholder="A-1" className="w-full px-3 py-2 border rounded-lg" />
+                            <input
+                                type="text"
+                                value={newStock.shelf}
+                                onChange={(e) => setNewStock(prev => ({ ...prev, shelf: e.target.value }))}
+                                placeholder="A-1"
+                                className="w-full px-3 py-2 border rounded-lg"
+                            />
                         </div>
                     </div>
 
                     <div>
                         <label className="block text-gray-500 mb-1">Reference</label>
-                        <input type="text" placeholder="e.g., Production Batch #PB-156" className="w-full px-3 py-2 border rounded-lg" />
+                        <input
+                            type="text"
+                            value={newStock.reference}
+                            onChange={(e) => setNewStock(prev => ({ ...prev, reference: e.target.value }))}
+                            placeholder="e.g., Production Batch #PB-156"
+                            className="w-full px-3 py-2 border rounded-lg"
+                        />
                     </div>
                 </div>
 
@@ -532,13 +617,163 @@ const InventorySystem = ({ embedded = false }) => {
                     <button onClick={() => setShowStockModal(false)} className="px-4 py-2 border rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50">
                         Cancel
                     </button>
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700">
+                    <button
+                        onClick={handleAddStock}
+                        disabled={newStock.quantity <= 0}
+                        className={`px-4 py-2 rounded-lg text-xs font-medium ${newStock.quantity > 0
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            }`}
+                    >
                         Add Stock
                     </button>
                 </div>
             </div>
         </div>
     );
+
+    // Packaging Queue Page (Migrated from PackagingSystem)
+    const PackagingQueuePage = () => {
+        const { bundles, moveBundle } = useBundles();
+        const { addBundleToStock } = useInventory();
+        const [searchTerm, setSearchTerm] = useState('');
+        const [selectedBundles, setSelectedBundles] = useState([]);
+
+        // Filter bundles for Packaging stage
+        const packagingBundles = bundles.filter(b => b.stage === 'Packaging');
+
+        // Filter by search
+        const filteredBundles = packagingBundles.filter(b =>
+            b.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            b.production.includes(searchTerm)
+        );
+
+        const handlePackBundle = (bundle) => {
+            moveBundle(bundle.id, 'Complete');
+            addBundleToStock(bundle);
+        };
+
+        const handleBatchPack = () => {
+            selectedBundles.forEach(id => {
+                const bundle = bundles.find(b => b.id === id);
+                if (bundle) handlePackBundle(bundle);
+            });
+            setSelectedBundles([]);
+        };
+
+        const toggleSelection = (id) => {
+            setSelectedBundles(prev =>
+                prev.includes(id) ? prev.filter(bId => bId !== id) : [...prev, id]
+            );
+        };
+
+        return (
+            <div className="space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-gray-900">Packaging Queue</h2>
+                        <p className="text-xs text-gray-500">Scan & Pack items into inventory</p>
+                    </div>
+                    <div className="bg-teal-50 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                        <span className="text-xs font-semibold text-teal-700">Ready to Pack:</span>
+                        <span className="text-sm font-bold text-teal-800">{packagingBundles.length}</span>
+                    </div>
+                </div>
+
+                {/* Actions & Filters */}
+                <div className="flex items-center justify-between gap-4">
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <input
+                            type="text"
+                            placeholder="Scan/Search bundle ID..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-xs focus:border-teal-400 focus:ring-1 focus:ring-teal-100"
+                        />
+                    </div>
+                    {selectedBundles.length > 0 && (
+                        <button
+                            onClick={handleBatchPack}
+                            className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-teal-700 transition-colors flex items-center gap-2 shadow-sm"
+                        >
+                            <PackageCheck size={16} />
+                            Pack & Stock {selectedBundles.length} Items
+                        </button>
+                    )}
+                </div>
+
+                {/* Bundles Grid */}
+                {filteredBundles.length === 0 ? (
+                    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
+                        <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <PackageCheck size={32} className="text-gray-300" />
+                        </div>
+                        <h3 className="text-gray-900 font-medium">Queue Empty</h3>
+                        <p className="text-gray-500 text-xs mt-1">Waiting for Finishing team.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {filteredBundles.map(bundle => (
+                            <div
+                                key={bundle.id}
+                                className={`bg-white rounded-xl border p-4 transition-all hover:shadow-md cursor-pointer group ${selectedBundles.includes(bundle.id)
+                                    ? 'border-teal-500 ring-1 ring-teal-500 shadow-sm'
+                                    : 'border-slate-200'
+                                    }`}
+                                onClick={() => toggleSelection(bundle.id)}
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedBundles.includes(bundle.id)}
+                                            onChange={() => toggleSelection(bundle.id)}
+                                            className="rounded text-teal-600 focus:ring-teal-500/20"
+                                        />
+                                        <div>
+                                            <span className="block font-mono font-bold text-gray-800 text-sm">{bundle.id}</span>
+                                            <span className="text-[10px] text-gray-400">Prod #{bundle.production}</span>
+                                        </div>
+                                    </div>
+                                    <span className="bg-teal-50 text-teal-700 px-2 py-1 rounded text-[10px] font-bold border border-teal-100">
+                                        Ready
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 mb-4 text-xs font-medium text-gray-600">
+                                    <div className="bg-gray-50 p-2 rounded">
+                                        <span className="text-gray-400 block text-[9px]">Color</span>
+                                        {bundle.colour}
+                                    </div>
+                                    <div className="bg-gray-50 p-2 rounded">
+                                        <span className="text-gray-400 block text-[9px]">Size</span>
+                                        {bundle.size}
+                                    </div>
+                                    <div className="bg-gray-50 p-2 rounded">
+                                        <span className="text-gray-400 block text-[9px]">Pcs</span>
+                                        {bundle.pieces}
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePackBundle(bundle);
+                                    }}
+                                    className="w-full py-2 bg-teal-600 text-white rounded-lg text-xs font-bold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                                >
+                                    <PackageCheck size={14} />
+                                    <span>Pack & Stock</span>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     // Tab navigation for embedded mode
     const TabNav = () => (
